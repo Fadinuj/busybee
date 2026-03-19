@@ -1,38 +1,41 @@
 package com.securefromscratch.busybee.safety;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-import org.owasp.safetypes.exception.TypeValidationException;
-import org.owasp.safetypes.types.integer.LimitedInteger;
+import com.fasterxml.jackson.annotation.JsonValue;
 
-@Schema(type = "int", description = "Hello times")
-public class Times extends LimitedInteger {
+public class Times {
     public static final int MIN_TIMES = 1;
     public static final int MAX_TIMES = 100;
 
-    public static Times from(int value) throws TypeValidationException {
-        return new Times(value);
-    }
+    private final int value;
 
-    private static Integer valueOf(String value) throws TypeValidationException {
+    public Times(String valueStr) {
         try {
-            return Integer.valueOf(value);
-        }
-        catch (Exception e) {
-            throw new TypeValidationException();
+            int parsed = Integer.parseInt(valueStr);
+            validate(parsed);
+            this.value = parsed;
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Times must be a valid integer");
         }
     }
 
-    public Times(String value) throws TypeValidationException {
-        super(valueOf(value));
+    public Times(int value) {
+        validate(value);
+        this.value = value;
     }
 
-    protected Times(int value) throws TypeValidationException {
-        super(value);
+    private void validate(int val) {
+        if (val < MIN_TIMES || val > MAX_TIMES) {
+            throw new IllegalArgumentException("Times must be between " + MIN_TIMES + " and " + MAX_TIMES);
+        }
+    }
+
+    @JsonValue
+    public int get() {
+        return value;
     }
 
     @Override
-    public Integer min() { return MIN_TIMES; }
-
-    @Override
-    public Integer max() { return MAX_TIMES; }
+    public String toString() {
+        return String.valueOf(value);
+    }
 }

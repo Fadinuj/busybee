@@ -1,0 +1,7 @@
+package com.securefromscratch.busybee.auth;
+
+public class InvalidResponsibilityException extends RuntimeException {
+    public InvalidResponsibilityException(String message) {
+        super(message);
+    }
+}

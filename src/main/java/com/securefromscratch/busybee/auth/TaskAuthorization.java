@@ -18,7 +18,7 @@ public class TaskAuthorization {
     }
 
     public boolean canCloseTask(UUID taskid, Authentication authentication) {
-        Task task = tasksStorage.find(taskid).orElse(null);
+        Task task = tasksStorage.getTaskById(taskid);
         System.out.println("DONE found=" + (task != null));
         if (task != null) {
             System.out.println("DONE owner=" + task.createdBy()

@@ -1,5 +1,10 @@
 package com.securefromscratch.busybee.controllers;
 
+import com.securefromscratch.busybee.safety.Description;
+import com.securefromscratch.busybee.safety.FutureDate;
+import com.securefromscratch.busybee.safety.Name;
+import com.securefromscratch.busybee.safety.ResponsibilityOf;
+import com.securefromscratch.busybee.safety.ValidTime;
 import com.securefromscratch.busybee.storage.Task;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -70,23 +75,14 @@ public class TasksController {
 
 
 
-    public record CreateTaskRequest(String name) {}
+    public record CreateTaskRequest(
+        Name name,
+        Description desc,
+        FutureDate dueDate,
+        ValidTime dueTime,
+        ResponsibilityOf responsibilityOf
+    ) {}
     public record CreateTaskResponse(UUID taskid) {}
-    
-    
-    private void validate(CreateTaskRequest request) {
-        if (request == null)
-            throw new IllegalArgumentException("Request is null");
-
-        if (request.name() == null || request.name().isBlank())
-            throw new IllegalArgumentException("Task name is required");
-
-        if (request.name().length() > 100)
-            throw new IllegalArgumentException("Task name too long");
-
-        if (!SAFE_TEXT.matcher(request.name()).matches())
-            throw new IllegalArgumentException("Task name contains invalid characters");
-    }
 
 
     // Request: {
@@ -98,17 +94,40 @@ public class TasksController {
     // }
     // Expected Response: { "taskid": "<uuid>" }
     @PostMapping("/create")
-    public ResponseEntity<?> create(@RequestBody CreateTaskRequest request) {
-    try {
-            validate(request);
-            UUID newTaskId = m_tasks.add(request.name(),"no description, yet",new String[0]);
-            return ResponseEntity.ok().body(new CreateTaskResponse(newTaskId));
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().body("Invalid input: " + ex.getMessage());
-        } catch (IOException e) {
-            e.printStackTrace();
-            LOGGER.error("Failed creating a task with parameters {0}", request, e);
-            return ResponseEntity.internalServerError().body("IO Exception");
+    public ResponseEntity<?> create(@RequestBody CreateTaskRequest request, Authentication authentication) throws IOException {
+        System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        System.out.println("CONTROLLER REACHED - ATTEMPTING TO SAVE TASK: " + request.name());
+        System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        String currentUser = authentication.getName();
+
+        // 1. בדיקת הרשאות TRIAL
+        boolean isTrial = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_TRIAL"));
+        if (isTrial && m_tasks.getAll().stream().anyMatch(t -> t.createdBy().equals(currentUser) && !t.done())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Trial limit reached");
         }
+
+        // 2. ולידציית זמן משולבת
+        if (request.dueTime() != null && request.dueDate() != null && request.dueTime().isPastWhen(request.dueDate().getDate())) {
+            throw new IllegalArgumentException("The combined date and time is in the past");
+        }
+
+        // 3. בדיקת כפילות
+        if (m_tasks.getAll().stream().anyMatch(t -> t.name().equalsIgnoreCase(request.name().toString()))) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("Task name already exists");
+        }
+
+        // 4. יצירה
+        UUID newTaskId = m_tasks.add(
+            request.name().toString(),
+            request.desc().get(),
+            request.dueDate() != null ? request.dueDate().getDate() : null,
+            request.dueTime() != null ? request.dueTime().getTime() : null,
+            currentUser,
+            request.responsibilityOf() != null ? request.responsibilityOf().toArray() : new String[0]
+        );
+
+        LOGGER.info("Task created successfully with ID: {}", newTaskId);
+        return ResponseEntity.ok(Map.of("taskid", newTaskId));
     }
 }

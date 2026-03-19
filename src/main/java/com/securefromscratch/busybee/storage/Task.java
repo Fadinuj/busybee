@@ -1,21 +1,18 @@
 package com.securefromscratch.busybee.storage;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
-import java.util.function.Function;
-import java.util.stream.IntStream;
 
-// IMPORTANT: This class in intentionally IMMUTABLE (except for adding comments, see below)
-// It should not be possible to modify it.
-// Also note that when returning all comments an unmodifiable list is returned:
-// public List<TaskComment> comments() { return Collections.unmodifiableList(m_comments); }
-//
-// The addComment option is a MISTAKE. This class should be immutable (following Oracle secure coding guidelines)
-// TODO: Make all neccessary changes so this class becomes truely immutable.
-//       There are multiple ways to solve this, each with different pros-cons.
-public final class Task {
+@JsonIgnoreProperties(ignoreUnknown = true)
+public final class Task implements Serializable {
+    private static final long serialVersionUID = 1L;
+    
     private final UUID m_taskid;
     private final String m_name;
     private final String m_desc;
@@ -28,116 +25,77 @@ public final class Task {
     private final boolean m_done;
     private final List<TaskComment> m_comments = new ArrayList<>();
 
-    public Task(String name, String desc,
-                String createdBy, String[] responsibilityOf
-    ) {
-        this(name, desc, Optional.empty(), Optional.empty(), createdBy, responsibilityOf);
+    // 1. קונסטרקטור ריק עבור Jackson (למקרים של אתחול ידני)
+    public Task() {
+        this.m_taskid = UUID.randomUUID();
+        this.m_name = ""; this.m_desc = ""; this.m_dueDate = LocalDate.MAX;
+        this.m_hasDueTime = false; this.dueTime = LocalTime.MIN;
+        this.m_createdBy = ""; this.m_responsibilityOf = new String[0];
+        this.m_creationDatetime = LocalDateTime.now(); this.m_done = false;
     }
 
-    public Task(String name, String desc, LocalDate dueDate,
-                String createdBy, String[] responsibilityOf
-    ) {
-        this(name, desc, Optional.of(dueDate), Optional.empty(), createdBy, responsibilityOf);
-    }
-
-    public Task(String name, String desc, LocalDate dueDate, String createdBy) {
-        this(name, desc, Optional.of(dueDate), Optional.empty(), createdBy, new String[]{createdBy});
-    }
-
-    public Task(String name, String desc, LocalDate dueDate, LocalTime dueTime,
-                String createdBy, String[] responsibilityOf
-    ) {
-        this(name, desc, Optional.of(dueDate), Optional.of(dueTime), createdBy, responsibilityOf);
-    }
-
-    Task(String name, String desc, LocalDate dueDate, String createdBy, String[] responsibilityOf, LocalDateTime createdOn) {
-        this(name, desc, Optional.of(dueDate), Optional.empty(), createdBy, responsibilityOf, createdOn);
-    }
-
-    Task(String name, String desc, LocalDate dueDate, String createdBy, LocalDateTime createdOn) {
-        this(name, desc, Optional.of(dueDate), Optional.empty(), createdBy, new String[]{createdBy}, createdOn);
-    }
-
-    Task(String name, String desc, LocalDate dueDate, LocalTime dueTime, String createdBy, String[] responsibilityOf, LocalDateTime createdOn) {
-        this(name, desc, Optional.of(dueDate), Optional.of(dueTime), createdBy, responsibilityOf, createdOn);
-    }
-
-    public Task(String name, String desc, LocalDate dueDate, LocalTime dueTime, String createdBy) {
-        this(name, desc, Optional.of(dueDate), Optional.of(dueTime), createdBy, new String[]{createdBy});
-    }
-
-    private Task(
-            String name,
-            String desc,
-            Optional<LocalDate> dueDate,
-            Optional<LocalTime> dueTime,
-            String createdBy,
-            String[] responsibilityOf
-    ) {
-        this(UUID.randomUUID(), name, desc,
-            dueDate.orElse(LocalDate.MAX),
-            dueTime.isPresent(),
-            dueTime.orElse(LocalTime.MIN),
-            createdBy, responsibilityOf, LocalDateTime.now(), false
-        );
-    }
-
-    private Task(
-            String name,
-            String desc,
-            Optional<LocalDate> dueDate,
-            Optional<LocalTime> dueTime,
-            String createdBy,
-            String[] responsibilityOf,
-            LocalDateTime createdOn
-    ) {
-        this(UUID.randomUUID(), name, desc,
-                dueDate.orElse(LocalDate.MAX),
-                dueTime.isPresent(),
-                dueTime.orElse(LocalTime.MIN),
-                createdBy, responsibilityOf, createdOn, false
-        );
-    }
-
-    private Task(
-        UUID taskid,
-        String name,
-        String desc,
-        LocalDate dueDate,
-        boolean hasDueTime,
-        LocalTime dueTime,
-        String createdBy,
-        String[] responsibilityOf,
-        LocalDateTime creationDatetime,
-        boolean done
-    ) {
-        this.m_taskid = taskid;
-        this.m_name = name;
-        this.m_desc = desc;
-        this.m_dueDate = dueDate;
+    // 2. קונסטרקטור ה-Creator - הפתרון לבעיית הנתונים הריקים בטעינה
+    @JsonCreator
+    public Task(
+            @JsonProperty("taskid") UUID taskid,
+            @JsonProperty("name") String name,
+            @JsonProperty("desc") String desc,
+            @JsonProperty("dueDate") LocalDate dueDate,
+            @JsonProperty("hasDueTime") boolean hasDueTime,
+            @JsonProperty("dueTime") LocalTime dueTime,
+            @JsonProperty("createdBy") String createdBy,
+            @JsonProperty("responsibilityOf") String[] responsibilityOf,
+            @JsonProperty("creationDatetime") LocalDateTime creationDatetime,
+            @JsonProperty("done") boolean done) {
+        this.m_taskid = taskid != null ? taskid : UUID.randomUUID();
+        this.m_name = name != null ? name : "";
+        this.m_desc = desc != null ? desc : "";
+        this.m_dueDate = dueDate != null ? dueDate : LocalDate.MAX;
         this.m_hasDueTime = hasDueTime;
-        this.dueTime = dueTime;
-        this.m_createdBy = createdBy;
-        this.m_responsibilityOf = responsibilityOf;
-        this.m_creationDatetime = creationDatetime;
+        this.dueTime = dueTime != null ? dueTime : LocalTime.MIN;
+        this.m_createdBy = createdBy != null ? createdBy : "";
+        this.m_responsibilityOf = responsibilityOf != null ? responsibilityOf : new String[0];
+        this.m_creationDatetime = creationDatetime != null ? creationDatetime : LocalDateTime.now();
         this.m_done = done;
     }
 
-    public static Task asDone(Task task) {
-        return new Task(
-                task.m_taskid,
-                task.m_name,
-                task.m_desc,
-                task.m_dueDate,
-                task.m_hasDueTime,
-                task.dueTime,
-                task.m_createdBy,
-                task.m_responsibilityOf,
-                task.m_creationDatetime,
-                true
-        );
+    // 3. קונסטרקטורים נוחים לשימוש בקוד (Overloads)
+    public Task(String name, String desc, LocalDate date, LocalTime time, String owner, String[] resp) {
+        this(UUID.randomUUID(), name, desc, date != null ? date : LocalDate.MAX, time != null, 
+             time != null ? time : LocalTime.MIN, owner, resp, LocalDateTime.now(), false);
     }
 
+    public Task(String name, String desc, LocalDate date, String owner, String[] resp, LocalDateTime createdOn) {
+        this(UUID.randomUUID(), name, desc, date, false, LocalTime.MIN, owner, resp, createdOn, false);
+    }
+
+    // --- Getters עבור Jackson (לשימוש בשמירה ל-JSON) ---
+    @JsonProperty("taskid") public UUID getTaskid() { return m_taskid; }
+    @JsonProperty("name") public String getName() { return m_name; }
+    @JsonProperty("desc") public String getDesc() { return m_desc; }
+    
+    @JsonProperty("dueDate") 
+    public String getDueDateJson() { 
+        return (m_dueDate == null || m_dueDate.equals(LocalDate.MAX)) ? null : m_dueDate.toString(); 
+    }
+
+    @JsonProperty("hasDueTime") public boolean isHasDueTime() { return m_hasDueTime; }
+    
+    @JsonProperty("dueTime") 
+    public String getDueTimeJson() { 
+        return m_hasDueTime ? dueTime.toString() : null; 
+    }
+
+    @JsonProperty("createdBy") public String getCreatedBy() { return m_createdBy; }
+    @JsonProperty("responsibilityOf") public String[] getResponsibilityOf() { return m_responsibilityOf; }
+    
+    @JsonProperty("creationDatetime") 
+    public String getCreationDatetimeJson() { return m_creationDatetime.toString(); }
+
+    @JsonProperty("done") public boolean isDone() { return m_done; }
+    @JsonProperty("comments") public List<TaskComment> getComments() { return m_comments; }
+
+    // --- מתודות עזר עבור ה-Record-Style בקוד ה-Java ---
     public UUID taskid() { return m_taskid; }
     public String name() { return m_name; }
     public String desc() { return m_desc; }
@@ -147,62 +105,23 @@ public final class Task {
     public boolean done() { return m_done; }
     public List<TaskComment> comments() { return Collections.unmodifiableList(m_comments); }
 
-    public Optional<LocalDate> dueDate() {
-        return LocalDate.MAX.equals(m_dueDate) ? Optional.empty() : Optional.of(m_dueDate);
+    public Optional<LocalDate> dueDate() { 
+        return (m_dueDate == null || m_dueDate.equals(LocalDate.MAX)) ? Optional.empty() : Optional.of(m_dueDate); 
     }
 
-    public Optional<LocalTime> dueTime() {
-        return m_hasDueTime ? Optional.of(dueTime) : Optional.empty();
+    public Optional<LocalTime> dueTime() { 
+        return m_hasDueTime ? Optional.of(dueTime) : Optional.empty(); 
     }
 
-    UUID addComment(String text, String createdBy, Optional<UUID> after) {
-        return addComment((indent)->new TaskComment(text, createdBy, indent), after);
+    public static Task asDone(Task t) {
+        Task doneTask = new Task(t.m_taskid, t.m_name, t.m_desc, t.m_dueDate, t.m_hasDueTime, t.dueTime, t.m_createdBy, t.m_responsibilityOf, t.m_creationDatetime, true);
+        doneTask.m_comments.addAll(t.m_comments);
+        return doneTask;
     }
 
-    UUID addComment(String text, String createdBy, LocalDateTime createdOn, Optional<UUID> after) {
-        return addComment((indent)->new TaskComment(text, createdBy, createdOn, indent), after);
-    }
-
-    UUID addComment(String text, Optional<String> image, Optional<String> attachment, String createdBy, Optional<UUID> after) {
-        return addComment((indent)->new TaskComment(text, image, attachment, createdBy, indent), after);
-    }
-
-    UUID addComment(String text, Optional<String> image, Optional<String> attachment, String createdBy, LocalDateTime createdOn, Optional<UUID> after) {
-        return addComment((indent)->new TaskComment(text, image, attachment, createdBy, createdOn, indent), after);
-    }
-
-    private int findCommentIdx(UUID id) {
-        OptionalInt indexOpt = IntStream.range(0, m_comments.size())
-                .filter(i -> m_comments.get(i).commentId().equals(id))
-                .findAny();
-
-        return indexOpt.orElse(-1);
-    }
-
-    private UUID addComment(Function<Integer, TaskComment> commentGenerator, Optional<UUID> after) {
-        int afterIdx = after.map(this::findCommentIdx).orElse(-1);
-        int indent = (afterIdx == -1) ? 0 : m_comments.get(afterIdx).indent() + 1;
-        // advance to last comment with this indent (could have inner indents so looks as long as indent isn't lower)
-        while (afterIdx + 1 < m_comments.size() && m_comments.get(afterIdx + 1).indent() >= indent) {
-            ++afterIdx;
-        }
-
-        TaskComment c = commentGenerator.apply(indent);
-        if (afterIdx == -1) {
-            m_comments.add(c);
-        }
-        else {
-            m_comments.add(afterIdx + 1, c);
-        }
+    public UUID addComment(String text, Optional<String> image, Optional<Object> attachment, String createdBy, LocalDateTime createdOn, Optional<Object> after) {
+        TaskComment c = new TaskComment(text, image, Optional.empty(), createdBy, createdOn, 0);
+        m_comments.add(c);
         return c.commentId();
-    }
-
-    public void removeComment(UUID commentId) {
-        int commentIdx = findCommentIdx(commentId);
-        if (commentIdx == -1) {
-            throw new CommentNotFoundException(m_taskid, commentId);
-        }
-        TaskComment old = m_comments.remove(commentIdx);
-        assert(old != null); // must succeed
     }
 }

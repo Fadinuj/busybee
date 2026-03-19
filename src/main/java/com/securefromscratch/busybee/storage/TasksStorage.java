@@ -1,20 +1,71 @@
 package com.securefromscratch.busybee.storage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.stereotype.Service;
-
 import java.io.*;
-import java.time.LocalDate;
-import java.time.LocalTime;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 @Service
 public class TasksStorage {
-    private final List<Task> m_tasks = loadTasks();
+    private final List<Task> m_tasks = new ArrayList<>();
+    private final ObjectMapper m_wrapper = new ObjectMapper();
+    private final String storagePath = System.getProperty("user.home") + File.separator + "busybee_db.json";
 
-    public TasksStorage() throws IOException, ClassNotFoundException {
-        // Use initial hardcoded values if the file does not exist or is empty
+    public TasksStorage() throws IOException {
+        // 1. הגדרת ה-Wrapper בצורה אחידה לכל הפעולות
+        m_wrapper.registerModule(new JavaTimeModule());
+        // ביטול שמירת תאריכים כמערכי מספרים (הופך אותם ל-Strings)
+        m_wrapper.configure(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+        // מניעת קריסה אם יש שדות ב-JSON שלא קיימים ב-Java (חשוב לגרסאות קודמות)
+        m_wrapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        // מניעת שגיאה על רשימות ריקות
+        m_wrapper.configure(com.fasterxml.jackson.databind.SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+
+        File file = new File(storagePath);
+        
+        // 2. ניסיון טעינה מהדיסק אם הקובץ קיים
+        if (file.exists() && file.length() > 0) {
+            System.out.println(">>> DEBUG: Found database file at " + storagePath);
+            loadFromDisk();
+        }
+
+        // 3. אם אחרי הטעינה הרשימה עדיין ריקה (או שאין קובץ), נשתמש בגנרטור
         if (m_tasks.isEmpty()) {
+            System.out.println(">>> DEBUG: No tasks found. Generating initial data...");
             InitialDataGenerator.fillWithData(m_tasks);
+            saveToDisk(); // שמירה מיידית של נתוני ברירת המחדל
+        }
+    }
+
+    private void loadFromDisk() {
+        try {
+            File file = new File(storagePath);
+            // שימוש ב-TypeReference כדי ש-Jackson ידע שמדובר ברשימת Tasks
+            List<Task> loaded = m_wrapper.readValue(file, new TypeReference<List<Task>>() {});
+            if (loaded != null) {
+                m_tasks.clear();
+                m_tasks.addAll(loaded);
+                System.out.println(">>> DEBUG: Successfully loaded " + m_tasks.size() + " tasks from disk.");
+            }
+        } catch (IOException e) {
+            System.err.println(">>> DEBUG: Failed to load from disk: " + e.getMessage());
+            // במקרה של שגיאה קריטית ב-JSON, אנחנו לא מוחקים את הקובץ כדי שתוכל לתקן אותו
+        }
+    }
+
+    public synchronized void saveToDisk() {
+        try (PrintWriter out = new PrintWriter(new OutputStreamWriter(
+                new FileOutputStream(storagePath), StandardCharsets.UTF_8))) {
+            // כתיבת ה-JSON בצורה יפה (Pretty Print)
+            String json = m_wrapper.writerWithDefaultPrettyPrinter().writeValueAsString(m_tasks);
+            out.print(json);
+            out.flush(); // וידוא שהכל נכתב פיזית לדיסק
+            System.out.println(">>> DEBUG: Database updated on disk. Total tasks: " + m_tasks.size());
+        } catch (IOException e) {
+            System.err.println(">>> DEBUG: Failed to save to disk: " + e.getMessage());
         }
     }
 
@@ -22,91 +73,29 @@ public class TasksStorage {
         return Collections.unmodifiableList(m_tasks);
     }
 
-    public UUID add(String name, String desc, String[] responsibilityOf) throws IOException {
-        Task newTask = new Task(name, desc, "Yariv", responsibilityOf);
-        return add(newTask);
-    }
-
-    public UUID add(String name, String desc, LocalDate dueDate, String[] responsibilityOf) throws IOException {
-        Task newTask = new Task(name, desc, dueDate, "Yariv", responsibilityOf);
-        return add(newTask);
-    }
-
-    public UUID add(String name, String desc, LocalDate dueDate, LocalTime dueTime, String[] responsibilityOf) throws IOException {
-        Task newTask = new Task(name, desc, dueDate, dueTime, "Yariv", responsibilityOf);
-        return add(newTask);
-    }
-
-    public boolean markDone(UUID taskid) throws IOException {
-        Iterator<Task> tasksItr = m_tasks.iterator();
-        while (tasksItr.hasNext()) {
-            Task t = tasksItr.next();
-            if (t.taskid().equals(taskid)) {
-                if (t.done()) {
-                    return true;
-                }
-                tasksItr.remove();
-                Task doneTask = Task.asDone(t);
-                m_tasks.add(doneTask);
-                try {
-                    saveTasks();
-                } catch (IOException e) {
-                    m_tasks.remove(doneTask);
-                    m_tasks.add(t);
-                    throw e;
-                }
-                return false;
-            }
-        }
-        throw new TaskNotFoundException(taskid);
-    }
-    
-
-    public UUID add(Task newTask) throws IOException {
+    public synchronized UUID add(String name, String desc, java.time.LocalDate date, java.time.LocalTime time, String owner, String[] resp) {
+        Task newTask = new Task(name, desc, date, time, owner, resp);
         m_tasks.add(newTask);
-        try {
-            saveTasks();
-        } catch (IOException e) {
-            m_tasks.remove(newTask); // undo
-            throw e;
-        }
+        saveToDisk();
         return newTask.taskid();
     }
 
-    private List<Task> loadTasks() {
-        // NOT IMPLEMENTED
-        // TODO: You will need to implement this
-        return new ArrayList<>();
-    }
-
-    private void saveTasks() throws IOException {
-        // NOT IMPLEMENTED
-        // TODO: You will need to implement this
-    }
-
-    public UUID addComment(Task t, String text, String createdBy, Optional<UUID> after) throws IOException {
-        UUID commentId = t.addComment(text, createdBy, after);
-        try {
-            saveTasks();
-        } catch (IOException e) {
-            t.removeComment(commentId);
-            throw e;
+    public synchronized boolean markDone(UUID taskid) {
+        for (int i = 0; i < m_tasks.size(); i++) {
+            if (m_tasks.get(i).taskid().equals(taskid)) {
+                if (m_tasks.get(i).done()) return true;
+                m_tasks.set(i, Task.asDone(m_tasks.get(i)));
+                saveToDisk();
+                return true;
+            }
         }
-        return commentId;
+        return false;
     }
 
-    public UUID addComment(Task t, String text, Optional<String> image, Optional<String> attachment, String createdBy, Optional<UUID> after) throws IOException {
-        UUID commentId = t.addComment(text, image, attachment, createdBy, after);
-        try {
-            saveTasks();
-        } catch (IOException e) {
-            t.removeComment(commentId);
-            throw e;
-        }
-        return commentId;
-    }
-
-    public Optional<Task> find(UUID taskid) {
-        return m_tasks.stream().filter((other)->other.taskid().equals(taskid)).findAny();
+    public Task getTaskById(UUID id) {
+        return m_tasks.stream()
+                .filter(t -> t.taskid().equals(id))
+                .findFirst()
+                .orElse(null);
     }
 }

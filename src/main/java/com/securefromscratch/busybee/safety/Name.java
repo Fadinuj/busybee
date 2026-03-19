@@ -1,23 +1,31 @@
 package com.securefromscratch.busybee.safety;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-import org.owasp.safetypes.exception.TypeValidationException;
-import org.owasp.safetypes.types.string.words.BoundedWord;
-import org.springframework.boot.context.properties.bind.ConstructorBinding;
+import com.fasterxml.jackson.annotation.JsonValue;
+import java.util.regex.Pattern;
 
-@Schema(type = "String", description = "Name")
-public class Name extends BoundedWord {
+public class Name {
     public static final int MIN_LENGTH = 1;
-    public static final int MAX_LENGTH = 20;
+    public static final int MAX_LENGTH = 100;
+    private static final Pattern SAFE_PATTERN = Pattern.compile("^[a-zA-Z0-9 \\-_.!?#א-ת]*$");
 
-    @ConstructorBinding
-    public Name(String value) throws TypeValidationException {
-        super(value);
+    private final String value;
+
+    public Name(String value) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Name is required");
+        }
+        if (value.length() < MIN_LENGTH || value.length() > MAX_LENGTH) {
+            throw new IllegalArgumentException("Invalid name length");
+        }
+        if (!SAFE_PATTERN.matcher(value).matches()) {
+            throw new IllegalArgumentException("Name contains illegal characters");
+        }
+        this.value = value;
     }
 
+    @JsonValue
     @Override
-    public Integer min() { return MIN_LENGTH; }
-
-    @Override
-    public Integer max() { return MAX_LENGTH; }
+    public String toString() {
+        return value;
+    }
 }

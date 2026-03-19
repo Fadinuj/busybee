@@ -1,71 +1,67 @@
 package com.securefromscratch.busybee.storage;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
-public class TaskComment {
-    private enum AttachedFileType { NONE, IMAGE, ATTACHMENT }
-    private final UUID commentid;
-    private final String text;
-    private final AttachedFileType attachedFileType;
-    private final String imageOrAttachment;
-    private final String createdBy;
-    private final LocalDateTime createdOn;
-    private final int indent;
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class TaskComment implements Serializable {
+    private static final long serialVersionUID = 1L;
+
+    private final UUID m_commentId;
+    private final String m_text;
+    private final Optional<String> m_image;
+    private final Optional<String> m_attachment;
+    private final String m_createdBy;
+    private final LocalDateTime m_createdOn;
+    private final int m_indent;
+
+    public TaskComment() {
+        this.m_commentId = UUID.randomUUID();
+        this.m_text = "";
+        this.m_image = Optional.empty();
+        this.m_attachment = Optional.empty();
+        this.m_createdBy = "";
+        this.m_createdOn = LocalDateTime.now();
+        this.m_indent = 0;
+    }
 
     public TaskComment(String text, String createdBy, int indent) {
-        this(UUID.randomUUID(), text, Optional.empty(), Optional.empty(), indent, createdBy, LocalDateTime.now());
+        this(text, Optional.empty(), Optional.empty(), createdBy, LocalDateTime.now(), indent);
     }
 
     public TaskComment(String text, String createdBy, LocalDateTime createdOn, int indent) {
-        this(UUID.randomUUID(), text, Optional.empty(), Optional.empty(), indent, createdBy, createdOn);
+        this(text, Optional.empty(), Optional.empty(), createdBy, createdOn, indent);
     }
 
-    public TaskComment(String text, Optional<String> image, Optional<String> attachment, String createdBy, int indent) {
-        this(UUID.randomUUID(), text, image, attachment, indent, createdBy, LocalDateTime.now());
+    public TaskComment(String text, Optional<String> image, Optional<Object> attachment, String createdBy, LocalDateTime createdOn, int indent) {
+        this.m_commentId = UUID.randomUUID();
+        this.m_text = text;
+        this.m_image = image != null ? image : Optional.empty();
+        this.m_attachment = attachment != null ? Optional.of(attachment.toString()) : Optional.empty();
+        this.m_createdBy = createdBy;
+        this.m_createdOn = createdOn;
+        this.m_indent = indent;
     }
 
-    public TaskComment(String text, Optional<String> image, Optional<String> attachment, String createdBy, LocalDateTime createdOn, int indent) {
-        this(UUID.randomUUID(), text, image, attachment, indent, createdBy, createdOn);
-    }
+    // --- מתודות עבור Jackson (JSON) ---
+    @JsonProperty("commentId") public UUID getCommentId() { return m_commentId; }
+    @JsonProperty("text") public String getText() { return m_text; }
+    @JsonProperty("image") public String getImageJson() { return m_image.orElse(null); }
+    @JsonProperty("attachment") public String getAttachmentJson() { return m_attachment.orElse(null); }
+    @JsonProperty("createdBy") public String getCreatedBy() { return m_createdBy; }
+    @JsonProperty("createdOn") public String getCreatedOnJson() { return m_createdOn.toString(); }
+    @JsonProperty("indent") public int getIndent() { return m_indent; }
 
-    private TaskComment(UUID commentid, String text, Optional<String> image, Optional<String> attachment, int indent, String createdBy, LocalDateTime createdOn) {
-        this.commentid = commentid;
-        this.text = text;
-
-        AttachedFileType attachedFileType = AttachedFileType.NONE;
-        String attachedFile = null;
-        if (image.isPresent()) {
-            attachedFile = image.get();
-            attachedFileType = AttachedFileType.IMAGE;
-        }
-        else if (attachment.isPresent()) {
-            attachedFile = attachment.get();
-            attachedFileType = AttachedFileType.ATTACHMENT;
-        }
-        this.attachedFileType = attachedFileType;
-        this.imageOrAttachment = attachedFile;
-        this.indent = indent;
-        this.createdBy = createdBy;
-        this.createdOn = createdOn;
-    }
-
-    public UUID commentId() { return commentid; }
-    public String text() { return text; }
-    public String createdBy() { return createdBy; }
-    public LocalDateTime createdOn() { return createdOn; }
-    public int indent() { return indent; }
-
-    public Optional<String> image() {
-        return (attachedFileType == AttachedFileType.IMAGE)
-                ? Optional.of(imageOrAttachment)
-                : Optional.empty();
-    }
-
-    public Optional<String> attachment() {
-        return (attachedFileType == AttachedFileType.ATTACHMENT)
-                ? Optional.of(imageOrAttachment)
-                : Optional.empty();
-    }
+    // --- מתודות עבור ה-Java (לפתרון שגיאות הקומפילציה) ---
+    public UUID commentId() { return m_commentId; }
+    public String text() { return m_text; }
+    public Optional<String> image() { return m_image; }
+    public Optional<String> attachment() { return m_attachment; }
+    public String createdBy() { return m_createdBy; }
+    public LocalDateTime createdOn() { return m_createdOn; }
+    public int indent() { return m_indent; }
 }

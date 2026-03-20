@@ -1,19 +1,18 @@
 package com.securefromscratch.busybee.controllers;
 
 import com.securefromscratch.busybee.safety.CommentText;
+import com.securefromscratch.busybee.safety.ImageLink;
 import com.securefromscratch.busybee.storage.FileStorage;
 import com.securefromscratch.busybee.storage.Task;
 import com.securefromscratch.busybee.storage.TaskNotFoundException;
 import com.securefromscratch.busybee.storage.TasksStorage;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.nio.file.Paths;
@@ -29,7 +28,8 @@ public class CommentsUploadController {
     public record AddCommentFields(
             @NotNull UUID taskid,
             Optional<UUID> commentid,
-            @NotNull CommentText text
+            @NotNull CommentText text,
+            ImageLink imageLink
     ) {}
 
     public record CreatedCommentId(UUID commentid) {}
@@ -47,8 +47,36 @@ public class CommentsUploadController {
         }
 
         String currentUser = authentication.getName();
+        FileStorage fileStorage = new FileStorage(Paths.get("uploads"));
 
-        if (optFile.isEmpty() || optFile.get().isEmpty()) {
+        boolean hasImageLink = commentFields.imageLink() != null && !commentFields.imageLink().isEmpty();
+        boolean hasUploadedFile = optFile.isPresent() && !optFile.get().isEmpty();
+
+        if (hasImageLink && hasUploadedFile) {
+            throw new IllegalArgumentException("Use either image link or file upload, not both");
+        }
+
+        if (hasImageLink) {
+            String storedFilename;
+            try {
+                storedFilename = fileStorage.storeRemoteImage(commentFields.imageLink().get());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Interrupted while downloading remote image");
+            }
+
+            UUID newComment = m_tasks.addComment(
+                    t.get(),
+                    commentFields.text().get(),
+                    Optional.of(storedFilename),
+                    Optional.empty(),
+                    currentUser,
+                    commentFields.commentid()
+            );
+            return ResponseEntity.ok(new CreatedCommentId(newComment));
+        }
+
+        if (!hasUploadedFile) {
             UUID newComment = m_tasks.addComment(
                     t.get(),
                     commentFields.text().get(),
@@ -58,15 +86,7 @@ public class CommentsUploadController {
             return ResponseEntity.ok(new CreatedCommentId(newComment));
         }
 
-        FileStorage fileStorage = new FileStorage(Paths.get("uploads"));
-
-        String storedFilename;
-        try {
-            storedFilename = fileStorage.store(optFile.get());
-        } catch (IllegalArgumentException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
-        }
-
+        String storedFilename = fileStorage.store(optFile.get());
         FileStorage.FileType filetype = FileStorage.identifyType(optFile.get());
 
         Optional<String> imageFilename =

@@ -273,8 +273,6 @@ function createComments(taskid, comments) {
 }
 
 function createCommentForm(taskId, commentId = null) {
-    //console.log(taskId)
-    //console.log(commentId)
     const form = document.createElement("div");
     form.className = "comment-form";
 
@@ -283,13 +281,18 @@ function createCommentForm(taskId, commentId = null) {
     textBox.placeholder = "Write a comment...";
     form.appendChild(textBox);
 
+    const imageLinkInput = document.createElement("input");
+    imageLinkInput.type = "text";
+    imageLinkInput.placeholder = "Or paste image link...";
+    form.appendChild(imageLinkInput);
+
     const fileInput = document.createElement("input");
     fileInput.type = "file";
     form.appendChild(fileInput);
 
     const addButton = document.createElement("button");
     addButton.textContent = "Add";
-    addButton.onclick = () => submitComment(taskId, textBox, fileInput, commentId);
+    addButton.onclick = () => submitComment(taskId, textBox, imageLinkInput, fileInput, commentId);
     form.appendChild(addButton);
 
     return form;
@@ -306,18 +309,17 @@ function toggleReplyForm(commentElement, taskId, commentId) {
     }
 }
 
-async function submitComment(taskId, textBox, fileInput, parentCommentId = null) {
+async function submitComment(taskId, textBox, imageLinkInput, fileInput, parentCommentId = null) {
     const formData = new FormData();
 
-    // Create the JSON object for comment fields
     const commentFields = {
         text: textBox.value,
-        taskid: taskId,       // Lowercase "taskid"
-        commentid: parentCommentId // Lowercase "commentid"
+        taskid: taskId,
+        commentid: parentCommentId,
+        imageLink: imageLinkInput.value ? imageLinkInput.value.trim() : null
     };
 
-    // Add the JSON part with explicit Content-Type
-    const blob = new Blob([JSON.stringify(commentFields)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(commentFields)], { type: "application/json" });
     formData.append("commentFields", blob);
 
     if (fileInput.files[0]) {
@@ -328,9 +330,10 @@ async function submitComment(taskId, textBox, fileInput, parentCommentId = null)
         const response = await sendPost("/comment", formData);
 
         if (response.ok) {
-            textBox.value = ""; // Clear text box
-            fileInput.value = ""; // Clear file input
-            fetchTasks(); // Refresh tasks to show the new comment
+            textBox.value = "";
+            imageLinkInput.value = "";
+            fileInput.value = "";
+            fetchTasks();
         } else {
             throw new Error(`Error: ${response.status}`);
         }

@@ -1,65 +1,58 @@
-let csrfToken = null;
-let csrfHeaderName = null;
-
-document.addEventListener('DOMContentLoaded', async function () {
-    // Fetch CSRF token on page load
-    try {
-        csrfToken = "dummy";
-        csrfHeaderName = "X-CSRF-TOKEN";
-        // TODO: Uncomment this to call CSRF token generations
-        const response = await fetch('/gencsrftoken', {
-            method: 'GET'
-            //, credentials: 'same-origin', // Ensures cookies are sent
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            csrfToken = data.token;
-            csrfHeaderName = data.headerName;
-            // TODO: Print csrfToken & csrfHeaderName to console. Compare with cookie value.
-        } else {
-            console.error('Failed to fetch CSfRF token:', response.status);
-        }
-    } catch (error) {
-        console.error('Error fetching CSRF token:', error);
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) {
+        return parts.pop().split(';').shift();
     }
+    return null;
+}
 
-    // Attach event listener to registration form
+document.addEventListener('DOMContentLoaded', function () {
     const registrationForm = document.getElementById('registration-form');
     const errorMessageElement = document.getElementById('error-message');
-
-    registrationForm.addEventListener('submit', async function (event) {
-        event.preventDefault(); // Prevent form from reloading the page
-
-        const username = document.getElementById('new-username').value.trim();
-        const password = document.getElementById('new-password').value.trim();
-
-        try {
-            const response = await fetch('/register', {
-                method: 'POST',
-                headers: {
-                'Content-Type': 'application/json',
-                [csrfHeaderName]: csrfToken
-                },
-                body: JSON.stringify({ username, password }),
-            });
-
-            if (response.status === 200) {
-                const data = await response.json();
-                window.location.href = data.redirectTo;
-            } else if (response.status === 401) {
-                const errorData = await response.json();
-                showError(errorData.error);
-            } else {
-                showError('Unexpected error occurred. Please try again.');
-            }
-        } catch (error) {
-            showError('Failed to connect to the server.');
-        }
-    });
 
     function showError(message) {
         errorMessageElement.textContent = message;
         errorMessageElement.classList.remove('hidden');
     }
+
+    registrationForm.addEventListener('submit', async function (event) {
+        event.preventDefault();
+
+        const username = document.getElementById('new-username').value.trim();
+        const password = document.getElementById('new-password').value;
+
+        const csrfToken = getCookie('XSRF-TOKEN');
+
+        if (!csrfToken) {
+            showError('Missing CSRF cookie. Refresh the page.');
+            return;
+        }
+
+        try {
+            const response = await fetch('/register', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-XSRF-TOKEN': csrfToken
+                },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json().catch(() => ({}));
+
+            if (response.ok) {
+                window.location.href = data.redirectTo || '/login';
+            } else if (response.status === 401) {
+                showError(data.error || 'Registration failed.');
+            } else if (response.status === 403) {
+                showError('CSRF validation failed. Refresh the page and try again.');
+            } else {
+                showError(data.error || 'Unexpected error occurred.');
+            }
+        } catch (error) {
+            showError('Failed to connect to the server.');
+        }
+    });
 });

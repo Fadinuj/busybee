@@ -9,6 +9,8 @@ public class UsersStorage {
     private final Map<String, UserAccount> m_users = new HashMap<>();
 
     public Optional<UserAccount> findByUsername(String username) {
+        System.out.println("findByUsername called with: [" + username + "]");
+        System.out.println("Current users: " + m_users.keySet());
         return Optional.ofNullable(m_users.get(username));
     }
 
@@ -18,7 +20,10 @@ public class UsersStorage {
         }
 
         UserAccount newAccount = new UserAccount(username, password);
-        m_users.put(username, newAccount); 
+        m_users.put(username, newAccount);
+
+        System.out.println("User created: [" + username + "]");
+        System.out.println("All users now: " + m_users.keySet());
 
         return newAccount;
     }

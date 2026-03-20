@@ -83,13 +83,17 @@ public class TasksStorage {
     public synchronized boolean markDone(UUID taskid) {
         for (int i = 0; i < m_tasks.size(); i++) {
             if (m_tasks.get(i).taskid().equals(taskid)) {
-                if (m_tasks.get(i).done()) return true;
+                if (m_tasks.get(i).done()) {
+                    return false;
+                }
+
                 m_tasks.set(i, Task.asDone(m_tasks.get(i)));
                 saveToDisk();
                 return true;
             }
         }
-        return false;
+
+        throw new TaskNotFoundException(taskid);
     }
 
     public Task getTaskById(UUID id) {

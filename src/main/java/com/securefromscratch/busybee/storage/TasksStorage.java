@@ -110,6 +110,13 @@ public class TasksStorage {
                 .findFirst()
                 .orElse(null);
     }
+    public Optional<Task> findTaskByImage(String filename) {
+        return m_tasks.stream()
+                .filter(task -> task.comments().stream().anyMatch(comment ->
+                        comment.image().isPresent() && filename.equals(comment.image().get())
+                ))
+                .findFirst();
+    }
 
     public Optional<Task> find(UUID id) {
         return m_tasks.stream()

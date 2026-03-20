@@ -3,12 +3,13 @@ package com.securefromscratch.busybee.auth;
 public class UserAccount {
     private String username;
     private String hashedPassword;
+    private String role;
     private boolean enabled = true;
 
-    public UserAccount(String username, String hashedPassword) {
-        // TODO: Assign username, hashedPassword
+    public UserAccount(String username, String hashedPassword, String role) {
         this.username = username;
         this.hashedPassword = hashedPassword;
+        this.role = role;
     }
 
     public String getUsername() {
@@ -28,7 +29,11 @@ public class UserAccount {
     }
 
     public String getRole() {
-        return "USER";
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
     }
 
     public boolean isEnabled() {

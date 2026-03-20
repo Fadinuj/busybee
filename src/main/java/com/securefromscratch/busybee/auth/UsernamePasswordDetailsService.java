@@ -22,11 +22,12 @@ public class UsernamePasswordDetailsService implements UserDetailsService {
 
         System.out.println("LOGIN found user = [" + account.getUsername() + "]");
         System.out.println("LOGIN stored hash = [" + account.getHashedPassword() + "]");
+        System.out.println("LOGIN role = [" + account.getRole() + "]");
 
         return org.springframework.security.core.userdetails.User
                 .withUsername(account.getUsername())
                 .password(account.getHashedPassword())
-                .roles("USER")
+                .roles(account.getRole())
                 .build();
     }
 

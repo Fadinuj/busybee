@@ -18,7 +18,7 @@ public class UsersPrePopulate {
             String plainPassword = "Admin123!";
             String encodedPassword = passwordEncoder.encode(plainPassword);
 
-            usersStorage.createUser(username, encodedPassword);
+            usersStorage.createUser(username, encodedPassword, "ADMIN");
         };
     }
 }

@@ -7,11 +7,13 @@ import com.securefromscratch.busybee.storage.TaskNotFoundException;
 import com.securefromscratch.busybee.storage.TasksStorage;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.nio.file.Paths;
@@ -57,7 +59,13 @@ public class CommentsUploadController {
         }
 
         FileStorage fileStorage = new FileStorage(Paths.get("uploads"));
-        String storedFilename = fileStorage.store(optFile.get());
+
+        String storedFilename;
+        try {
+            storedFilename = fileStorage.store(optFile.get());
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
 
         FileStorage.FileType filetype = FileStorage.identifyType(optFile.get());
 

@@ -2,7 +2,6 @@ package com.securefromscratch.busybee.controllers;
 
 import com.securefromscratch.busybee.storage.FileStorage;
 import org.springframework.core.io.ByteArrayResource;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,18 +21,6 @@ public class FileViewController {
 
         return ResponseEntity.ok()
                 .contentType(mediaType)
-                .contentLength(data.length)
-                .body(new ByteArrayResource(data));
-    }
-
-    @GetMapping("/attachment")
-    public ResponseEntity<ByteArrayResource> getAttachment(@RequestParam("file") String filename) throws IOException {
-        FileStorage fileStorage = new FileStorage(Paths.get("uploads"));
-        byte[] data = fileStorage.getBytes(filename);
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .contentLength(data.length)
                 .body(new ByteArrayResource(data));
     }

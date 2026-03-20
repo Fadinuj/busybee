@@ -66,7 +66,7 @@ public class TasksController {
 
     public record CreateTaskResponse(UUID taskid) {
     }
-
+    @PreAuthorize("hasAnyRole('ADMIN','CREATOR','TRIAL')")
     @PostMapping("/create")
     public ResponseEntity<?> create(@RequestBody CreateTaskRequest request, Authentication authentication) throws IOException {
         System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
